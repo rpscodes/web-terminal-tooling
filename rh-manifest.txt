@@ -3,4 +3,4 @@ kubectl  https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.14.5
 helm 3.10.1 https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/helm/3.10.1
 tekton 0.24.1 https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/pipeline/0.24.1
 knative 1.5.0 https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/serverless/1.5.0
-skupper 1.5.3 https://access.redhat.com/jbossnetwork/restricted/softwareDownload.html?softwareId=106658
+skupper 2.0.0 https://github.com/skupperproject/skupper/tree/2.0.0
