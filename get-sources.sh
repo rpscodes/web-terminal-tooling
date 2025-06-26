@@ -1,17 +1,24 @@
 #!/bin/bash
 #
 # Copyright (c) 2020-2023 Red Hat, Inc.
-# This program and the accompanying materials are made
-# available under the terms of the Eclipse Public License 2.0
-# which is available at https://www.eclipse.org/legal/epl-2.0/
-#
+# Licensed under the Eclipse Public License 2.0
 # SPDX-License-Identifier: EPL-2.0
-#
-# Contributors:
-#   Red Hat, Inc. - initial API and implementation
 #
 
 set -e
+
+# Determine correct sha256sum command
+if [[ "$(uname)" == "Darwin" ]]; then
+  if command -v gsha256sum >/dev/null 2>&1; then
+    SHA_CMD="gsha256sum"
+  else
+    echo "ERROR: gsha256sum not found. Please install GNU coreutils:"
+    echo "  brew install coreutils"
+    exit 1
+  fi
+else
+  SHA_CMD="sha256sum"
+fi
 
 updateSourcesFlag="false"
 printHelp="false"
@@ -43,7 +50,6 @@ set -o allexport; source tooling_versions.env; set +o allexport
 
 OPENSHIFT_CLIENTS_URL=https://mirror.openshift.com/pub/openshift-v4/x86_64/clients
 
-# Work in a /tmp/ directory
 TMPDIR=$(mktemp -d)
 echo "Using tmp dir ${TMPDIR}"
 cd "$TMPDIR"
@@ -52,12 +58,10 @@ echo "Downloading oc ${OC_VER} and the corresponding kubectl"
 curl -sSfL --insecure --remote-name-all \
   "${OPENSHIFT_CLIENTS_URL}/ocp/${OC_VER}/sha256sum.txt" \
   "${OPENSHIFT_CLIENTS_URL}/ocp/${OC_VER}/openshift-client-linux-${OC_VER}.tar.gz"
-echo "$(grep "openshift-client-linux-${OC_VER}.tar.gz" sha256sum.txt | cut -d' ' -f1) openshift-client-linux-${OC_VER}.tar.gz" | sha256sum --check --status
+grep "openshift-client-linux-${OC_VER}.tar.gz" sha256sum.txt | ${SHA_CMD} --check --status
 tar xzf "openshift-client-linux-${OC_VER}.tar.gz" -C "$CONTAINER_USR_BIN_DIR" oc kubectl
 
 KUBECTL_V=$("$CONTAINER_USR_BIN_DIR"/kubectl version --client=true -o=json | jq -r '.clientVersion.gitVersion')
-# Kubectl version has vMajor.Manor.BugFix-Build-GitRevision, like v1.20.1-5-g76a04fc
-# Cut build number and git revision
 KUBECTL_VER="${KUBECTL_V%-*-*}"
 echo "Extracted kubectl ${KUBECTL_VER}"
 
@@ -67,7 +71,7 @@ echo "Downloading helm ${HELM_VER}"
 curl -sSfL --insecure --remote-name-all \
   "${OPENSHIFT_CLIENTS_URL}/helm/${HELM_VER}/sha256sum.txt" \
   "${OPENSHIFT_CLIENTS_URL}/helm/${HELM_VER}/helm-linux-amd64"
-echo "$(grep helm-linux-amd64$ sha256sum.txt | cut -d' ' -f1) helm-linux-amd64" | sha256sum --check --status
+grep "helm-linux-amd64$" sha256sum.txt | ${SHA_CMD} --check --status
 mv helm-linux-amd64 "$CONTAINER_USR_BIN_DIR/helm"
 rm -rf "${TMPDIR:?}"/*
 
@@ -75,7 +79,7 @@ echo "Downloading tekton ${TKN_VER}"
 curl -sSfL --insecure --remote-name-all \
   "${OPENSHIFT_CLIENTS_URL}/pipeline/${TKN_VER}/sha256sum.txt" \
   "${OPENSHIFT_CLIENTS_URL}/pipeline/${TKN_VER}/tkn-linux-amd64.tar.gz"
-echo "$(grep tkn-linux-amd64.tar.gz sha256sum.txt | cut -d' ' -f1) tkn-linux-amd64.tar.gz" | sha256sum --check --status
+grep "tkn-linux-amd64.tar.gz" sha256sum.txt | ${SHA_CMD} --check --status
 tar xzf tkn-linux-amd64.tar.gz -C "$CONTAINER_USR_BIN_DIR" tkn
 rm -rf "${TMPDIR:?}"/*
 
@@ -83,7 +87,7 @@ echo "Downloading knative ${KN_VER}"
 curl -sSfL --insecure --remote-name-all \
   "${OPENSHIFT_CLIENTS_URL}/serverless/${KN_VER}/sha256sum.txt" \
   "${OPENSHIFT_CLIENTS_URL}/serverless/${KN_VER}/kn-linux-amd64.tar.gz"
-echo "$(grep kn-linux-amd64.tar.gz sha256sum.txt | cut -d' ' -f1) kn-linux-amd64.tar.gz" | sha256sum --check --status && \
+grep "kn-linux-amd64.tar.gz" sha256sum.txt | ${SHA_CMD} --check --status
 tar xzf kn-linux-amd64.tar.gz -C "$CONTAINER_USR_BIN_DIR" kn-linux-amd64
 mv "$CONTAINER_USR_BIN_DIR/kn-linux-amd64" "$CONTAINER_USR_BIN_DIR/kn"
 rm -rf "${TMPDIR:?}"/*
@@ -101,8 +105,6 @@ if [[ "$updateSourcesFlag" = "true" ]]; then
   rhpkg new-sources container-root-x86_64.tgz
 fi
 
-# NOTE: source code for submariner is stored in https://github.com/submariner-io/subctl,
-#       but built binaries are available only in https://github.com/submariner-io/releases/
 rm -f rh-manifest.txt || true
 {
   echo "oc ${OC_VER} ${OPENSHIFT_CLIENTS_URL}/ocp/${OC_VER}"
